@@ -119,8 +119,10 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 	void *data_end = ctx_data_end(ctx);
 	struct ethhdr *eth = data;
 
-#if __ctx_is == __ctx_skb
-	/* XDP does not support packets without L2 hdr, so skip the check.*/
+#if (__ctx_is == __ctx_skb) && defined(L3_DEV_EXIST)
+	/* XDP does not support packets without L2 hdr, so skip the check.
+	 * Also, the check is not needed when there is no L2-less device.
+	 */
 	if (ETH_HLEN == 0) {
 		/* The packet is received on L2-less device. Determine L3
 		 * protocol from skb->protocol.

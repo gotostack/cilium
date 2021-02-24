@@ -166,8 +166,10 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
 		 bool *l2_hdr_required __maybe_unused)
 {
-/* XDP does not support L2-less devices, so skip the checks. */
-#if (__ctx_is == __ctx_skb)
+/* XDP does not support L2-less devices, so skip the checks.
+ * Also, the check is not needed when there is no L2-less device.
+ */
+#if (__ctx_is == __ctx_skb) && defined(L3_DEV_EXIST)
 	if (IS_L3_DEV(ifindex))
 		/* NodePort request is going to be redirected to L3 dev, so skip
 		 * L2 addr settings.

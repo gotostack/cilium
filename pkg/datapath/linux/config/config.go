@@ -347,11 +347,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 
-		macro, err := isL3DevMacro()
+		macro, foundAny, err := isL3DevMacro()
 		if err != nil {
 			return err
 		}
 		cDefinesMap["IS_L3_DEV(ifindex)"] = macro
+		if foundAny {
+			cDefinesMap["L3_DEV_EXIST"] = "1"
+		}
 	}
 	const (
 		selectionRandom = iota + 1
@@ -517,7 +520,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	return fw.Flush()
 }
 
-func isL3DevMacro() (string, error) {
+func isL3DevMacro() (string, bool, error) {
 	anyL3Dev := false
 
 	macro := `({ \
@@ -525,7 +528,7 @@ func isL3DevMacro() (string, error) {
 	switch (ifindex) { \`
 	for _, iface := range option.Config.Devices {
 		if link, err := netlink.LinkByName(iface); err != nil {
-			return "", err
+			return "", false, err
 		} else if link.Attrs().HardwareAddr == nil {
 			anyL3Dev = true
 			macro += fmt.Sprintf("\ncase %d: is_l3 = true; break; \\", link.Attrs().Index)
@@ -535,10 +538,10 @@ func isL3DevMacro() (string, error) {
 	macro += "\n} \\\n is_l3; })\n"
 
 	if !anyL3Dev {
-		return "false", nil
+		return "false", false, nil
 	}
 
-	return macro, nil
+	return macro, true, nil
 }
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
